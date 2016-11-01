@@ -210,17 +210,6 @@ void putLightRepresentation(std::shared_ptr<OCResource> resource)
 
         std::cout << "Putting light representation..."<<std::endl;
 
-        usleep(sleepTime);
-
-            //test value
-
-        std::cout<<"temp result state:"<<sensorDev.temp_state<<std::endl;
-        std::cout<<"humi result state:"<<sensorDev.hum_state<<std::endl;
-        std::cout<<"gas result state:"<<sensorDev.gas_state<<std::endl;
-        std::cout<<"flame result state:"<<sensorDev.flame_state<<std::endl;
-        std::cout<<"json result state:"<< "'" << sensorDev.json_info << "'" <<std::endl;
-        std::cout<<"light result state:"<< "'" << sensorDev.light_state << "'" << std::endl;
-
         std::cout<<"gas value result:"<< "'" << sensorDev.gas_efflux << "'" << std::endl;
 
         rep.setValue("m_name", sensorDev.m_name);
@@ -452,60 +441,47 @@ std::string exec(const char* cmd)
 
 void checkGasState(int *gasTracker)
 {
-    if(gasTracker[0]==-200)
-    {  
-        int i=0;
-        for(;i<4;i++)
-        {
-            gasTracker[i]=gasTracker[i+1];
-        } 
-    }
-    else
+    int i=0;
+    if(gasTracker[0]!=-200)
     {
-        int i=0 , flag=0;
-        for(;i<4;i++)
+        int flag=0;
+        for(i=0;i<=4;i++)
         {
             if (gasTracker[i]>=300 && flag < 5)flag++;
+            std::cout<<"------------------------------------------------"<<std::endl;
+            std::cout<<"gasTracker value:"<<gasTracker[i]<<std::endl;
+            std::cout<<"gasTracker flag  value:"<<flag<<std::endl;
+            std::cout<<"------------------------------------------------"<<std::endl;
         } 
 
         if(flag>2&&flag<4) sensorDev.gas_state=1;
         else if(flag==5) sensorDev.gas_state=2;
         else  if(flag<1)sensorDev.gas_state=0;
-        for(;i<4;i++)
-        {
-            gasTracker[i]=gasTracker[i+1];
-        } 
+    }
+    for(i=0;i<4;i++)
+    {
+        gasTracker[i]=gasTracker[i+1];
     }
 }
 
 void checkFlameState(int *flameTracker)
 {
-    if(flameTracker[0]==-200)
-    {  
-        int i=0;
-        for(;i<4;i++)
+    int i;
+    if(flameTracker[0]!=-200)
+    {   int flag=0;
+        for(i=0;i<=4;i++)
         {
-            flameTracker[i]=flameTracker[i+1];
-        } 
-    }
-    else
-    {
-        int i=0 , flag=0;
-        for(;i<=4;i++)
-        {
-            
             if (flameTracker[i]<700 && flag < 5 )flag++;
-            std::cout<<"flameTracker value:"<<flameTracker[i]<<std::endl;
-            std::cout<<"flameTracker flag  value:"<<flag<<std::endl;
         } 
 
         if(flag>2&&flag<4) sensorDev.flame_state=1;
         else if(flag==5) sensorDev.flame_state=2;
         else if(flag<1) sensorDev.flame_state=0;
-        for(;i<4;i++)
-        {
-            flameTracker[i]=flameTracker[i+1];
-        } 
+    }
+
+    for(i=0;i<4;i++)
+    {
+        flameTracker[i]=flameTracker[i+1];
     }
 }
 
@@ -822,8 +798,10 @@ int main()
             fire_flag = 0;
         }
 
+        delay(1000);
 	    std::cout<<" while end "<<std::endl;
         filter++;
+
 
   	}
 
