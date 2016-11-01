@@ -33,6 +33,8 @@ using namespace OC;
 //static const char * SVR_DB_FILE_NAME = "./oic_svr_db_client.dat"
 typedef std::map<OCResourceIdentifier, std::shared_ptr<OCResource>> DiscoveredResourceMap;
 
+int block_flag = 1;
+
 int initFindResource();
 DiscoveredResourceMap discoveredResources;
 std::shared_ptr<OCResource> curResource;
@@ -46,6 +48,8 @@ std::mutex get_blocker;
 std::condition_variable cv;
 std::condition_variable put_cv;
 std::condition_variable get_cv;
+
+
 
 
 class SensorResource 
@@ -83,57 +87,40 @@ public:
 
 SensorResource sensorDev;
 
-void onObserve(const HeaderOptions /*headerOptions*/, const OCRepresentation& rep,
-                    const int& eCode, const int& sequenceNumber)
+void blockCheckFunc()
 {
-    int alramFlag;
-    std::cout << "in onObserve" << std::endl;
-    try
+    while(true)
     {
-        if(eCode == OC_STACK_OK && sequenceNumber != OC_OBSERVE_NO_OPTION)
+        time_t time_now;
+        time(&time_now);
+
+        if (time_now - sensorDev.time_stp > 20)
         {
-            if(sequenceNumber == OC_OBSERVE_REGISTER)
+            uri = "/a/sensor0";
+            curResource = 0;
+            std::cout << "****************************************************" << std::endl;
+            std::cout << "first uri : " << uri << std::endl;
+            std::cout << "first find" << std::endl;
+            initFindResource(2);
+            std::cout << "****************************************************" << std::endl;
+            std::cout << "****************************************************" << std::endl;
+            std::cout << "second find" << std::endl;
+            initFindResource(2);
+            std::cout << "****************************************************" << std::endl;
+            if(block_flag==1)
             {
-                std::cout << "Observe registration action is successful" << std::endl;
+                std::unique_lock<std::mutex> put_lock(put_blocker);
+                put_cv.notify_all();
             }
-            else if(sequenceNumber == OC_OBSERVE_DEREGISTER)
+            else if(block_flag==2)
             {
-                std::cout << "Observe De-registration action is successful" << std::endl;
-            }
-
-            std::cout << "OBSERVE RESULT:"<<std::endl;
-            std::cout << "\tSequenceNumber: "<< sequenceNumber << std::endl;
-            rep.getValue("fire_alarm", sensorDev.fire_alarm);
-
-            std::cout << "\talram Flag " <<sensorDev.fire_alarm<< std::endl;
-
-            if(alramFlag==1)// thread
-            {
-
-            }
-            else//
-            {
-
-            }
-        }
-        else
-        {
-            if(sequenceNumber == OC_OBSERVE_NO_OPTION)
-            {
-                std::cout << "Observe registration or de-registration action is failed" << std::endl;
-            }
-            else
-            {
-                std::cout << "onObserve Response error: " << eCode << std::endl;
+                std::unique_lock<std::mutex> get_lock(get_blocker);
+                get_cv.notify_all();
             }
         }
     }
-    catch(std::exception& e)
-    {
-        std::cout << "Exception: " << e.what() << " in onObserve" << std::endl;
-    }
-    std::cout << "end observe" << std::endl;
 }
+
 
 void onGet(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, const int eCode)
 {
@@ -173,6 +160,7 @@ void getLightRepresentation(std::shared_ptr<OCResource> resource)
         // Invoke resource's get API with the callback parameter
 
         QueryParamsMap test;
+        block_flag=2;
         resource->get(test, &onGet);
     }
 }
@@ -227,8 +215,10 @@ void putLightRepresentation(std::shared_ptr<OCResource> resource)
         rep.setValue("json_info", sensorDev.json_info);
 
         std::cout << "sending"<<std::endl;
+        block_flag=1;
         // Invoke resource's put API with rep, query map and the callback parameter
-        resource->put(rep, QueryParamsMap(),&onPut);
+        std::cout <<"put result print: "<<resource->put(rep, QueryParamsMap(),&onPut)<<std::endl;
+        std::cout <<"put result print2: "<<OC_STACK_OK<<std::endl;
             // std::cout << "sending.."<<std::endl;
         
     }
@@ -679,6 +669,8 @@ int main()
 	
     sensorDev.light_state = false;
     sensorDev.light_power = 0;
+
+    thread t(&blockCheckFunc);
 
     while(true)
     {
