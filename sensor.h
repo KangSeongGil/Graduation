@@ -21,6 +21,184 @@ typedef struct sensorValue
 	int th_data[5];
 }SENSOR_VALUE;
 
+void checkGasState(int *gasTracker)
+{
+    int i=0;
+    if(gasTracker[0]!=-200)
+    {
+        int flag=0;
+        for(i=0;i<=4;i++)
+        {
+            if (gasTracker[i]>=300 && flag < 5)flag++;
+            std::cout<<"------------------------------------------------"<<std::endl;
+            std::cout<<"gasTracker value:"<<gasTracker[i]<<std::endl;
+            std::cout<<"gasTracker flag  value:"<<flag<<std::endl;
+            std::cout<<"------------------------------------------------"<<std::endl;
+        }
+
+        if(flag>2&&flag<4) sensorDev.gas_state=1;
+        else if(flag==5) sensorDev.gas_state=2;
+        else  if(flag<1)sensorDev.gas_state=0;
+    }
+    for(i=0;i<4;i++)
+    {
+        gasTracker[i]=gasTracker[i+1];
+    }
+}
+
+void checkFlameState(int *flameTracker)
+{
+    int i;
+    if(flameTracker[0]!=-200)
+    {   int flag=0;
+        for(i=0;i<=4;i++)
+        {
+            if (flameTracker[i]<700 && flag < 5 )flag++;
+        }
+
+        if(flag>2&&flag<4) sensorDev.flame_state=1;
+        else if(flag==5) sensorDev.flame_state=2;
+        else if(flag<1) sensorDev.flame_state=0;
+    }
+
+    for(i=0;i<4;i++)
+    {
+        flameTracker[i]=flameTracker[i+1];
+    }
+}
+
+void checkHumiState(int *humTracker)
+{
+    if(humTracker[5] != -1000)
+    {
+        if(humTracker[0]==-200)
+        {
+            int i=0;
+            for(;i<=4;i++)
+            {
+                humTracker[i]=humTracker[i+1];
+
+            }
+        }
+        else
+        {
+            int avr=0,i;
+            for(i=0;i<=4;i++)
+            {
+                if(avr-humTracker[i]>10 || humTracker[i]-avr > 10)
+                    avr+=avr;
+                else
+                    avr+=humTracker[i];
+            }
+            avr=avr/5;
+
+            if(avr-humTracker[5]>=4)
+            {
+                if(humTracker[6]==6)
+                {
+                    sensorDev.hum_state=2;
+                }
+                else if (humTracker[6]>2 && humTracker[6]<5)
+                {
+                    sensorDev.hum_state=1;
+                    humTracker[6]++;
+                }
+                else
+                {
+                    humTracker[6]++;
+                }
+            }
+            else if(avr-humTracker[5]<4)
+            {
+                if(humTracker[6]==0)
+                {
+                    sensorDev.hum_state=0;
+                }
+                else if (humTracker[6]>2 && humTracker[6]<5)
+                {
+                    sensorDev.hum_state=1;
+                    humTracker[6]--;
+                }
+                else
+                {
+                    humTracker[6]--;
+                }
+
+                for(i=0;i<3;i++)
+                {
+                    humTracker[i] = humTracker[i+1];
+                }
+
+            }
+        }
+    }
+}
+
+void checkTempState(int *tempTracker)
+{
+
+    if(tempTracker[5] != -1000)
+    {
+        if(tempTracker[0]==-200)
+        {
+            int i=0;
+            for(;i<=4;i++)
+            {
+                tempTracker[i]=tempTracker[i+1];
+            }
+        }
+        else
+        {
+            int avr=0,i;
+            for(i=0;i<=4;i++)
+            {
+                avr+=tempTracker[i];
+            }
+            avr=avr/5;
+
+            if(tempTracker[5]-avr>=2)
+            {
+                if(tempTracker[6]==6)
+                {
+                    sensorDev.temp_state=2;
+                }
+                else if (tempTracker[6]>2 && tempTracker[6]<5)
+                {
+                    sensorDev.temp_state=1;
+                    tempTracker[6]++;
+                }
+                else
+                {
+                    tempTracker[6]++;
+                }
+            }
+            else if(tempTracker[5]-avr<2)
+            {
+                if(tempTracker[6]==0)
+                {
+                    sensorDev.temp_state=0;
+                }
+                else if (tempTracker[6]>2 && tempTracker[6]<5)
+                {
+                    sensorDev.temp_state=1;
+                    tempTracker[6]--;
+                }
+                else
+                {
+                    tempTracker[6]--;
+                }
+
+                for(i=0;i<3;i++)
+                {
+                    tempTracker[i] =  tempTracker[i+1];
+                }
+            }
+        }
+        std::cout<<"temp state : "<<sensorDev.temp_state<<std::endl;
+    }
+}
+
+
 void read_th_data() 
 {
 	uint8_t laststate = HIGH;
@@ -99,7 +277,6 @@ SENSOR_VALUE readSensor(void)
 
 	if(wiringPiSetup() == -1) return 1;
 
-	
 	if(wiringPiSPISetup(TH_SPI_CHANNEL, SPI_SPEED) == -1) return 2;
 	pinMode(CS_MCP3208, OUTPUT);
 	flameValue = read_mcp3208_adc(0);
