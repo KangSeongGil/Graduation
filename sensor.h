@@ -269,6 +269,7 @@ int read_mcp3208_adc(unsigned char adcChannel)
 	return adcValue;
 }//flame
 
+
 SENSOR_VALUE readSensor(void)
 {
 

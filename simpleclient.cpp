@@ -97,6 +97,8 @@ void blockCheckFunc()
         if (time_now - sensorDev.time_stp > 20)
         {
             uri = "/a/sensor0";
+
+            std::cout<<"Start new Uri get"<<std::endl;
             curResource = 0;
             std::cout << "****************************************************" << std::endl;
             std::cout << "first uri : " << uri << std::endl;
