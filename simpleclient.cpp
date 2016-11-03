@@ -35,7 +35,8 @@ typedef std::map<OCResourceIdentifier, std::shared_ptr<OCResource>> DiscoveredRe
 
 int block_flag = 1;
 
-int initFindResource();
+int initFindResource(int check);
+
 DiscoveredResourceMap discoveredResources;
 std::shared_ptr<OCResource> curResource;
 static ObserveType OBSERVE_TYPE_TO_USE = ObserveType::Observe;
@@ -89,6 +90,7 @@ SensorResource sensorDev;
 
 void blockCheckFunc()
 {
+    delay(15000);
     while(true)
     {
         time_t time_now;
@@ -97,25 +99,21 @@ void blockCheckFunc()
         if (time_now - sensorDev.time_stp > 20)
         {
             uri = "/a/sensor0";
-
-            std::cout<<"Start new Uri get"<<std::endl;
             curResource = 0;
-            std::cout << "****************************************************" << std::endl;
-            std::cout << "first uri : " << uri << std::endl;
-            std::cout << "first find" << std::endl;
-            initFindResource(2);
-            std::cout << "****************************************************" << std::endl;
-            std::cout << "****************************************************" << std::endl;
-            std::cout << "second find" << std::endl;
-            initFindResource(2);
-            std::cout << "****************************************************" << std::endl;
+
             if(block_flag==1)
             {
+                std::cout<<"=================================="<<std::endl;
+                std::cout<<"new uri error occur put"<<std::endl;
+                std::cout<<"=================================="<<std::endl;
                 std::unique_lock<std::mutex> put_lock(put_blocker);
                 put_cv.notify_all();
             }
             else if(block_flag==2)
             {
+                std::cout<<"=================================="<<std::endl;
+                std::cout<<"new uri error occur put"<<std::endl;
+                std::cout<<"=================================="<<std::endl;
                 std::unique_lock<std::mutex> get_lock(get_blocker);
                 get_cv.notify_all();
             }
@@ -431,6 +429,183 @@ std::string exec(const char* cmd)
     return result;
 }
 
+void checkGasState(int *gasTracker)
+{
+    int i=0;
+    if(gasTracker[0]!=-200)
+    {
+        int flag=0;
+        for(i=0;i<=4;i++)
+        {
+            if (gasTracker[i]>=300 && flag < 5)flag++;
+            std::cout<<"------------------------------------------------"<<std::endl;
+            std::cout<<"gasTracker value:"<<gasTracker[i]<<std::endl;
+            std::cout<<"gasTracker flag  value:"<<flag<<std::endl;
+            std::cout<<"------------------------------------------------"<<std::endl;
+        }
+
+        if(flag>2&&flag<4) sensorDev.gas_state=1;
+        else if(flag==5) sensorDev.gas_state=2;
+        else  if(flag<1)sensorDev.gas_state=0;
+    }
+    for(i=0;i<4;i++)
+    {
+        gasTracker[i]=gasTracker[i+1];
+    }
+}
+
+void checkFlameState(int *flameTracker)
+{
+    int i;
+    if(flameTracker[0]!=-200)
+    {   int flag=0;
+        for(i=0;i<=4;i++)
+        {
+            if (flameTracker[i]<700 && flag < 5 )flag++;
+        }
+
+        if(flag>2&&flag<4) sensorDev.flame_state=1;
+        else if(flag==5) sensorDev.flame_state=2;
+        else if(flag<1) sensorDev.flame_state=0;
+    }
+
+    for(i=0;i<4;i++)
+    {
+        flameTracker[i]=flameTracker[i+1];
+    }
+}
+
+void checkHumiState(int *humTracker)
+{
+    if(humTracker[5] != -1000)
+    {
+        if(humTracker[0]==-200)
+        {
+            int i=0;
+            for(;i<=4;i++)
+            {
+                humTracker[i]=humTracker[i+1];
+
+            }
+        }
+        else
+        {
+            int avr=0,i;
+            for(i=0;i<=4;i++)
+            {
+                if(avr-humTracker[i]>10 || humTracker[i]-avr > 10)
+                     avr+=avr;
+                else
+                     avr+=humTracker[i];
+            }
+            avr=avr/5;
+
+            if(avr-humTracker[5]>=4)
+            {
+                if(humTracker[6]==6)
+                {
+                    sensorDev.hum_state=2;
+                }
+                else if (humTracker[6]>2 && humTracker[6]<5)
+                {
+                    sensorDev.hum_state=1;
+                    humTracker[6]++;
+                }
+                else
+                {
+                    humTracker[6]++;
+                }
+            }
+            else if(avr-humTracker[5]<4)
+            {
+                if(humTracker[6]==0)
+                {
+                    sensorDev.hum_state=0;
+                }
+                else if (humTracker[6]>2 && humTracker[6]<5)
+                {
+                    sensorDev.hum_state=1;
+                    humTracker[6]--;
+                }
+                else
+                {
+                    humTracker[6]--;
+                }
+
+                for(i=0;i<3;i++)
+                {
+                    humTracker[i] = humTracker[i+1];
+                }
+
+            }
+        }
+    }
+}
+
+void checkTempState(int *tempTracker)
+{
+
+    if(tempTracker[5] != -1000)
+    {
+        if(tempTracker[0]==-200)
+        {
+            int i=0;
+            for(;i<=4;i++)
+            {
+                tempTracker[i]=tempTracker[i+1];
+            }
+        }
+        else
+        {
+            int avr=0,i;
+            for(i=0;i<=4;i++)
+            {
+                avr+=tempTracker[i];
+            }
+            avr=avr/5;
+
+            if(tempTracker[5]-avr>=2)
+            {
+                if(tempTracker[6]==6)
+                {
+                    sensorDev.temp_state=2;
+                }
+                else if (tempTracker[6]>2 && tempTracker[6]<5)
+                {
+                    sensorDev.temp_state=1;
+                    tempTracker[6]++;
+                }
+                else
+                {
+                    tempTracker[6]++;
+                }
+            }
+            else if(tempTracker[5]-avr<2)
+            {
+                if(tempTracker[6]==0)
+                {
+                    sensorDev.temp_state=0;
+                }
+                else if (tempTracker[6]>2 && tempTracker[6]<5)
+                {
+                    sensorDev.temp_state=1;
+                    tempTracker[6]--;
+                }
+                else
+                {
+                    tempTracker[6]--;
+                }
+
+                for(i=0;i<3;i++)
+                {
+                    tempTracker[i] =  tempTracker[i+1];
+                }
+            }
+        }
+        std::cout<<"temp state : "<<sensorDev.temp_state<<std::endl;
+    }
+}
+
 
 int main() 
 {
@@ -495,7 +670,7 @@ int main()
     sensorDev.light_state = false;
     sensorDev.light_power = 0;
 
-    thread t(&blockCheckFunc);
+    std::thread t(&blockCheckFunc);
 
     while(true)
     {
