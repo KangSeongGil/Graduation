@@ -101,22 +101,20 @@ void blockCheckFunc()
             uri = "/a/sensor0";
             curResource = 0;
 
-            if(block_flag==1)
-            {
-                std::cout<<"=================================="<<std::endl;
-                std::cout<<"new uri error occur put"<<std::endl;
-                std::cout<<"=================================="<<std::endl;
+            if (block_flag == 1) {
+                std::cout << "==================================" << std::endl;
+                std::cout << "new uri error occur put" << std::endl;
+                std::cout << "==================================" << std::endl;
                 std::unique_lock<std::mutex> put_lock(put_blocker);
                 put_cv.notify_all();
-            }
-            else if(block_flag==2)
-            {
-                std::cout<<"=================================="<<std::endl;
-                std::cout<<"new uri error occur put"<<std::endl;
-                std::cout<<"=================================="<<std::endl;
+            } else if (block_flag == 2) {
+                std::cout << "==================================" << std::endl;
+                std::cout << "new uri error occur put" << std::endl;
+                std::cout << "==================================" << std::endl;
                 std::unique_lock<std::mutex> get_lock(get_blocker);
                 get_cv.notify_all();
             }
+            sensorDev.time_stp = time_now;
         }
     }
 }
