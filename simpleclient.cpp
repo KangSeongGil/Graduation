@@ -106,13 +106,13 @@ void blockCheckFunc()
                 std::cout << "new uri error occur put" << std::endl;
                 std::cout << "==================================" << std::endl;
                 std::unique_lock<std::mutex> put_lock(put_blocker);
-                put_cv.notify_all();
+                put_cv.notify_one();
             } else if (block_flag == 2) {
                 std::cout << "==================================" << std::endl;
                 std::cout << "new uri error occur put" << std::endl;
                 std::cout << "==================================" << std::endl;
                 std::unique_lock<std::mutex> get_lock(get_blocker);
-                get_cv.notify_all();
+                get_cv.notify_one();
             }
             sensorDev.time_stp = time_now;
         }
@@ -147,7 +147,7 @@ void onGet(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, 
     }
 
     std::unique_lock<std::mutex> get_lock(get_blocker);
-   	get_cv.notify_all();
+   	get_cv.notify_one();
 }
 
 void getSensorRepresentation(std::shared_ptr<OCResource> resource)
@@ -185,7 +185,7 @@ void onPut(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, 
     }
 
     std::unique_lock<std::mutex> put_lock(put_blocker);
-    put_cv.notify_all();
+    put_cv.notify_one();
 }
 
 void putSensorRepresentation(std::shared_ptr<OCResource> resource)
@@ -261,7 +261,7 @@ void onPost(const HeaderOptions& /*headerOptions*/,
    // initFindResource();
     
     std::unique_lock<std::mutex> lock(blocker);
-    cv.notify_all();
+    cv.notify_one();
 }
 
 // Local function to put a different state for this resource
@@ -288,7 +288,8 @@ void foundResource(std::shared_ptr<OCResource> resource)
     try
     {
         
-        std::lock_guard<std::mutex> lock(curResourceLock);
+        //
+        // std::lock_guard<std::mutex> lock(curResourceLock);
         if(discoveredResources.find(resource->uniqueIdentifier()) == discoveredResources.end())
         {
             std::cout << "Found resource " << resource->uniqueIdentifier() <<
@@ -342,7 +343,7 @@ void foundResource(std::shared_ptr<OCResource> resource)
             {   
                 curResource = resource;
                 std::unique_lock<std::mutex> lock(blocker);
-                cv.notify_all(); 
+                cv.notify_one();
             }
         }
         else
@@ -436,10 +437,6 @@ void checkGasState(int *gasTracker)
         for(i=0;i<=4;i++)
         {
             if (gasTracker[i]>=300 && flag < 5)flag++;
-            std::cout<<"------------------------------------------------"<<std::endl;
-            std::cout<<"gasTracker value:"<<gasTracker[i]<<std::endl;
-            std::cout<<"gasTracker flag  value:"<<flag<<std::endl;
-            std::cout<<"------------------------------------------------"<<std::endl;
         }
 
         if(flag>2&&flag<4) sensorDev.gas_state=1;
@@ -702,6 +699,7 @@ int main()
 	    time(&time_now);
 	    sensorDev.time_stp = time_now;
 
+
 	    putSensorRepresentation(curResource);
 	    std::unique_lock<std::mutex> put_lock(put_blocker);
 	    put_cv.wait(put_lock);
@@ -789,7 +787,6 @@ int main()
         }
 
         delay(1000);
-	    std::cout<<" while end "<<std::endl;
         filter++;
 
 
