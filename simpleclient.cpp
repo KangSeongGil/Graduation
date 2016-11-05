@@ -50,6 +50,8 @@ std::condition_variable cv;
 std::condition_variable put_cv;
 std::condition_variable get_cv;
 
+const int LEDPIN=4;
+
 
 
 
@@ -87,6 +89,195 @@ public:
 };
 
 SensorResource sensorDev;
+
+
+
+std::string exec(const char* cmd)
+{
+    char buffer[128];
+    std::string result = "";
+    std::shared_ptr<FILE> pipe(popen(cmd, "r"), pclose);
+    if (!pipe) throw std::runtime_error("popen() failed!");
+    while (!feof(pipe.get())) {
+        if (fgets(buffer, 128, pipe.get()) != NULL)
+            result += buffer;
+        break;
+    }
+    return result;
+}
+
+void checkGasState(int *gasTracker)
+{
+    int i=0;
+    if(gasTracker[0]!=-200)
+    {
+        int flag=0;
+        for(i=0;i<=4;i++)
+        {
+            if (gasTracker[i]>=300 && flag < 5)flag++;
+        }
+
+        if(flag>2&&flag<4) sensorDev.gas_state=1;
+        else if(flag==5) sensorDev.gas_state=2;
+        else  if(flag<1)sensorDev.gas_state=0;
+    }
+    for(i=0;i<4;i++)
+    {
+        gasTracker[i]=gasTracker[i+1];
+    }
+}
+
+void checkFlameState(int *flameTracker)
+{
+    int i;
+    if(flameTracker[0]!=-200)
+    {   int flag=0;
+        for(i=0;i<=4;i++)
+        {
+            if (flameTracker[i]<700 && flag < 5 )flag++;
+        }
+
+        if(flag>2&&flag<4) sensorDev.flame_state=1;
+        else if(flag==5) sensorDev.flame_state=2;
+        else if(flag<1) sensorDev.flame_state=0;
+    }
+
+    for(i=0;i<4;i++)
+    {
+        flameTracker[i]=flameTracker[i+1];
+    }
+}
+
+void checkHumiState(int *humTracker)
+{
+    if(humTracker[5] != -1000)
+    {
+        if(humTracker[0]==-200)
+        {
+            int i=0;
+            for(;i<=4;i++)
+            {
+                humTracker[i]=humTracker[i+1];
+
+            }
+        }
+        else
+        {
+            int avr=0,i;
+            for(i=0;i<=4;i++)
+            {
+                if(avr-humTracker[i]>10 || humTracker[i]-avr > 10)
+                    avr+=avr;
+                else
+                    avr+=humTracker[i];
+            }
+            avr=avr/5;
+
+            if(avr-humTracker[5]>=4)
+            {
+                if(humTracker[6]==6)
+                {
+                    sensorDev.hum_state=2;
+                }
+                else if (humTracker[6]>2 && humTracker[6]<5)
+                {
+                    sensorDev.hum_state=1;
+                    humTracker[6]++;
+                }
+                else
+                {
+                    humTracker[6]++;
+                }
+            }
+            else if(avr-humTracker[5]<4)
+            {
+                if(humTracker[6]==0)
+                {
+                    sensorDev.hum_state=0;
+                }
+                else if (humTracker[6]>2 && humTracker[6]<5)
+                {
+                    sensorDev.hum_state=1;
+                    humTracker[6]--;
+                }
+                else
+                {
+                    humTracker[6]--;
+                }
+
+                for(i=0;i<3;i++)
+                {
+                    humTracker[i] = humTracker[i+1];
+                }
+
+            }
+        }
+    }
+}
+
+void checkTempState(int *tempTracker)
+{
+
+    if(tempTracker[5] != -1000)
+    {
+        if(tempTracker[0]==-200)
+        {
+            int i=0;
+            for(;i<=4;i++)
+            {
+                tempTracker[i]=tempTracker[i+1];
+            }
+        }
+        else
+        {
+            int avr=0,i;
+            for(i=0;i<=4;i++)
+            {
+                avr+=tempTracker[i];
+            }
+            avr=avr/5;
+
+            if(tempTracker[5]-avr>=2)
+            {
+                if(tempTracker[6]==6)
+                {
+                    sensorDev.temp_state=2;
+                }
+                else if (tempTracker[6]>2 && tempTracker[6]<5)
+                {
+                    sensorDev.temp_state=1;
+                    tempTracker[6]++;
+                }
+                else
+                {
+                    tempTracker[6]++;
+                }
+            }
+            else if(tempTracker[5]-avr<2)
+            {
+                if(tempTracker[6]==0)
+                {
+                    sensorDev.temp_state=0;
+                }
+                else if (tempTracker[6]>2 && tempTracker[6]<5)
+                {
+                    sensorDev.temp_state=1;
+                    tempTracker[6]--;
+                }
+                else
+                {
+                    tempTracker[6]--;
+                }
+
+                for(i=0;i<3;i++)
+                {
+                    tempTracker[i] =  tempTracker[i+1];
+                }
+            }
+        }
+        std::cout<<"temp state : "<<sensorDev.temp_state<<std::endl;
+    }
+}
 
 void blockCheckFunc()
 {
@@ -216,7 +407,6 @@ void putSensorRepresentation(std::shared_ptr<OCResource> resource)
         block_flag=1;
         // Invoke resource's put API with rep, query map and the callback parameter
         std::cout <<"put result print: "<<resource->put(rep, QueryParamsMap(),&onPut)<<std::endl;
-        std::cout <<"put result print2: "<<OC_STACK_OK<<std::endl;
             // std::cout << "sending.."<<std::endl;
         
     }
@@ -414,192 +604,7 @@ int initFindResource(int check)
 
 
 
-std::string exec(const char* cmd) 
-{
-    char buffer[128];
-    std::string result = "";
-    std::shared_ptr<FILE> pipe(popen(cmd, "r"), pclose);
-    if (!pipe) throw std::runtime_error("popen() failed!");
-    while (!feof(pipe.get())) {
-        if (fgets(buffer, 128, pipe.get()) != NULL)
-            result += buffer;
-            break;    
-        }
-    return result;
-}
 
-void checkGasState(int *gasTracker)
-{
-    int i=0;
-    if(gasTracker[0]!=-200)
-    {
-        int flag=0;
-        for(i=0;i<=4;i++)
-        {
-            if (gasTracker[i]>=300 && flag < 5)flag++;
-        }
-
-        if(flag>2&&flag<4) sensorDev.gas_state=1;
-        else if(flag==5) sensorDev.gas_state=2;
-        else  if(flag<1)sensorDev.gas_state=0;
-    }
-    for(i=0;i<4;i++)
-    {
-        gasTracker[i]=gasTracker[i+1];
-    }
-}
-
-void checkFlameState(int *flameTracker)
-{
-    int i;
-    if(flameTracker[0]!=-200)
-    {   int flag=0;
-        for(i=0;i<=4;i++)
-        {
-            if (flameTracker[i]<700 && flag < 5 )flag++;
-        }
-
-        if(flag>2&&flag<4) sensorDev.flame_state=1;
-        else if(flag==5) sensorDev.flame_state=2;
-        else if(flag<1) sensorDev.flame_state=0;
-    }
-
-    for(i=0;i<4;i++)
-    {
-        flameTracker[i]=flameTracker[i+1];
-    }
-}
-
-void checkHumiState(int *humTracker)
-{
-    if(humTracker[5] != -1000)
-    {
-        if(humTracker[0]==-200)
-        {
-            int i=0;
-            for(;i<=4;i++)
-            {
-                humTracker[i]=humTracker[i+1];
-
-            }
-        }
-        else
-        {
-            int avr=0,i;
-            for(i=0;i<=4;i++)
-            {
-                if(avr-humTracker[i]>10 || humTracker[i]-avr > 10)
-                     avr+=avr;
-                else
-                     avr+=humTracker[i];
-            }
-            avr=avr/5;
-
-            if(avr-humTracker[5]>=4)
-            {
-                if(humTracker[6]==6)
-                {
-                    sensorDev.hum_state=2;
-                }
-                else if (humTracker[6]>2 && humTracker[6]<5)
-                {
-                    sensorDev.hum_state=1;
-                    humTracker[6]++;
-                }
-                else
-                {
-                    humTracker[6]++;
-                }
-            }
-            else if(avr-humTracker[5]<4)
-            {
-                if(humTracker[6]==0)
-                {
-                    sensorDev.hum_state=0;
-                }
-                else if (humTracker[6]>2 && humTracker[6]<5)
-                {
-                    sensorDev.hum_state=1;
-                    humTracker[6]--;
-                }
-                else
-                {
-                    humTracker[6]--;
-                }
-
-                for(i=0;i<3;i++)
-                {
-                    humTracker[i] = humTracker[i+1];
-                }
-
-            }
-        }
-    }
-}
-
-void checkTempState(int *tempTracker)
-{
-
-    if(tempTracker[5] != -1000)
-    {
-        if(tempTracker[0]==-200)
-        {
-            int i=0;
-            for(;i<=4;i++)
-            {
-                tempTracker[i]=tempTracker[i+1];
-            }
-        }
-        else
-        {
-            int avr=0,i;
-            for(i=0;i<=4;i++)
-            {
-                avr+=tempTracker[i];
-            }
-            avr=avr/5;
-
-            if(tempTracker[5]-avr>=2)
-            {
-                if(tempTracker[6]==6)
-                {
-                    sensorDev.temp_state=2;
-                }
-                else if (tempTracker[6]>2 && tempTracker[6]<5)
-                {
-                    sensorDev.temp_state=1;
-                    tempTracker[6]++;
-                }
-                else
-                {
-                    tempTracker[6]++;
-                }
-            }
-            else if(tempTracker[5]-avr<2)
-            {
-                if(tempTracker[6]==0)
-                {
-                    sensorDev.temp_state=0;
-                }
-                else if (tempTracker[6]>2 && tempTracker[6]<5)
-                {
-                    sensorDev.temp_state=1;
-                    tempTracker[6]--;
-                }
-                else
-                {
-                    tempTracker[6]--;
-                }
-
-                for(i=0;i<3;i++)
-                {
-                    tempTracker[i] =  tempTracker[i+1];
-                }
-            }
-        }
-        std::cout<<"temp state : "<<sensorDev.temp_state<<std::endl;
-    }
-}
 
 
 int main() 
@@ -612,15 +617,6 @@ int main()
             flameTracker[5]={-200,-200,-200,-200,-200},humTracker[7]={-200,-200,-200,-200,-200,-200,0},
             tempTracker[7]={-200,-200,-200,-200,-200,-200,0},filter=0;
     FILE *pFile=NULL;
-
-
-    if(wiringPiSetup() == -1)
-    { 
-            fprintf (stdout, "Unable to start wiringPi: %s\n", strerror(errno));
-    }
-    pinMode(26, OUTPUT);
-    digitalWrite(26, HIGH);
-  
 
 
 	if(0<(fd = open( "./uuid_log.txt",O_RDONLY)))
@@ -657,6 +653,17 @@ int main()
     initFindResource(2);
     std::cout<< "****************************************************"<<std::endl;
     //std::lock_guard<std::mutex> lock(curResourceLock);
+
+    if (wiringPiSetup () == -1)
+        fprintf (stdout, "wiringPiSPISetup Failed: %s\n", strerror(errno));
+    std::cout<<"wiringPi setup end"<<std::endl;
+    pinMode(LEDPIN, OUTPUT);
+    digitalWrite(LEDPIN, LOW);
+    pinMode(LEDPIN, OUTPUT);
+    digitalWrite(LEDPIN, HIGH);
+    delay(500);
+    pinMode(LEDPIN, OUTPUT);
+    digitalWrite(LEDPIN, LOW);
 
     std::cout<< "start run"<<std::endl;
    
@@ -715,13 +722,13 @@ int main()
             int check=0;
             if (sensorDev.light_state>0)
             {
-                pinMode(26, OUTPUT);
-                digitalWrite(26, HIGH);
+                pinMode(LEDPIN, OUTPUT);
+                digitalWrite(LEDPIN, HIGH);
             } 
             else if(sensorDev.light_state == 0)
             {
-                pinMode(26, OUTPUT);
-                digitalWrite(26, LOW);
+                pinMode(LEDPIN, OUTPUT);
+                digitalWrite(LEDPIN, LOW);
             }
 
             if (fire_flag==0)//처음 발견 
@@ -767,8 +774,8 @@ int main()
         {
             int check=0;
             std::string tmp;
-            pinMode(26, OUTPUT);
-            digitalWrite(26, LOW);
+            pinMode(LEDPIN, OUTPUT);
+            digitalWrite(LEDPIN, LOW);
             tmp = exec("ps -elf | grep node | grep -v grep | awk '{ print $2 }'");
             std::cout << tmp <<std::endl;
             int PID = atoi(tmp.c_str());
@@ -788,8 +795,6 @@ int main()
 
         delay(1000);
         filter++;
-
-
   	}
 
     return 0;

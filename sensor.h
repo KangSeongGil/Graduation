@@ -103,11 +103,9 @@ SENSOR_VALUE readSensor(int sensor_flag)
 
     if(sensor_flag == 0)
     {
-
         if(wiringPiSPISetup(SPI_CHANNEL_1, SPI_SPEED) == -1)
-        {
             fprintf (stdout, "wiringPiSPISetup Failed: %s\n", strerror(errno));
-        }
+        std::cout<<"wiringPiSPISetup"<<std::endl;
     }
 
     pinMode(CS_MCP3208, OUTPUT);

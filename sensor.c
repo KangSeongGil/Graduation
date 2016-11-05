@@ -9,7 +9,7 @@
 #define SPI_CHANNEL_2 1
 #define SPI_SPEED   1000000 
 
-
+const int LEDPIN=4;
 #define MAXTIMINGS	85
 #define DHTPIN		7
 int th_data[5] = {0, 0, 0, 0, 0};
@@ -46,30 +46,18 @@ int read_mcp3208_adc(unsigned char adcChannel)
 
 int main(void)
 {
-	SENSOR_VALUE sensor_value;
-
-	if(sensor_flag == 0)
+	if(1)
 	{
-		if(wiringPiSetup() == -1)
-	  	{
-	    	fprintf (stdout, "Unable to start wiringPi: %s\n", strerror(errno));
-	  	}
-	 
-	 	if(wiringPiSPISetup(SPI_CHANNEL_1, SPI_SPEED) == -1)
-	 	{
-	    	fprintf (stdout, "wiringPiSPISetup Failed: %s\n", strerror(errno));
-	  	}
+		if (wiringPiSetup () == -1)
+			fprintf (stdout, "wiringPiSPISetup Failed: \n");
+		printf("wiringPi setup end\n");
+
+		if(wiringPiSPISetup(SPI_CHANNEL_1, SPI_SPEED) == -1)
+			fprintf (stdout, "wiringPiSPISetup Failed\n");
+		printf("wiringPiSPISetup\n");
 	}
-	
-  	pinMode(CS_MCP3208, OUTPUT);
 
-	sensor_value.flameValue = read_mcp3208_adc(0);
-
-	std::cout<< "flameValue : "<<sensor_value.flameValue<<std::endl;
-		
-	sensor_value.gasValue=0;
-	sensor_value.check_flag=0;
-	
+	pinMode(LEDPIN, OUTPUT);
+	digitalWrite(LEDPIN, HIGH);
 	return 0;
-
 }
