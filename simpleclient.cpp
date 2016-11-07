@@ -248,7 +248,7 @@ void checkTempState(int *tempTracker)
             }
             avr=avr/5;
 
-            if(tempTracker[5]-avr>=2)
+            if(tempTracker[5]-avr>=5 && (sensorDev.gas_state==2))
             {
                 if(tempTracker[6]==6)
                 {
@@ -268,7 +268,7 @@ void checkTempState(int *tempTracker)
                     tempTracker[6]++;
                 }
             }
-            else if(tempTracker[5]-avr<2)
+            else if(tempTracker[5]-avr<10 || sensorDev.gas_state<2)
             {
                 if(tempTracker[6]==0)
                 {
@@ -810,7 +810,7 @@ int main()
             kill(PID,9);
              */
             system("forever stopall");
-            check = system("rm ./햣ㄱ .txt");
+            check = system("rm ./json_string.txt");
             if (check == -1 || check == 127)
             {
                 std::cout<< "system function error "<<std::endl;
@@ -824,7 +824,7 @@ int main()
         delay(1000);
         filter++;
         allocation_resource.unlock();
-        sleep(1);
+        sleep(5);
   	}
 
     return 0;
