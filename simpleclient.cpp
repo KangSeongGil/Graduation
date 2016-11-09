@@ -9,7 +9,7 @@
 #include <time.h>
 #include <uuid/uuid.h>
 #include <string.h>
-#include <fcntl.h> 
+#include <fcntl.h>
 #include <sys/types.h>
 #include <signal.h>
 #include <cstdio>
@@ -56,10 +56,10 @@ const int LEDPIN=4;
 
 
 
-class SensorResource 
+class SensorResource
 {
 
-public: 
+public:
     std::string m_name;
     int light_state;
     int light_power;
@@ -82,8 +82,8 @@ public:
     int time_stp;
 
     SensorResource():m_name(""),light_state(0),light_power(0),gas_state(0),gas_efflux(0),
-                        temper(0.0),humi(0.0),temp_state(0),hum_state(0),flame_state(0),flame_power(0),
-                        fire_alarm(0),json_info(""),time_stp(0)
+                     temper(0.0),humi(0.0),temp_state(0),hum_state(0),flame_state(0),flame_power(0),
+                     fire_alarm(0),json_info(""),time_stp(0)
     {
 
     }
@@ -115,12 +115,16 @@ void checkGasState(int *gasTracker)
         int flag=0;
         for(i=0;i<=4;i++)
         {
-            if (gasTracker[i]>=300 && flag < 5)flag++;
+            if (gasTracker[i]>=300 && flag < 5)
+            {
+                std::cout<<"\n\n pluse flag\n\n"<<std::endl;
+                flag++;
+            }
         }
 
         sensorDev_mutex.lock();
         if(flag>2&&flag<4) sensorDev.gas_state=1;
-        else if(flag==4) sensorDev.gas_state=2;
+        else if(flag>=4) sensorDev.gas_state=2;
         else  if(flag<2)sensorDev.gas_state=0;
         sensorDev_mutex.unlock();
     }
@@ -248,7 +252,7 @@ void checkTempState(int *tempTracker)
             }
             avr=avr/5;
 
-            if(tempTracker[5]-avr>=5 && (sensorDev.gas_state==2))
+            if(tempTracker[5]-avr>=2)
             {
                 if(tempTracker[6]==6)
                 {
@@ -267,8 +271,17 @@ void checkTempState(int *tempTracker)
                 {
                     tempTracker[6]++;
                 }
+                sensorDev_mutex.lock();
+                if(sensorDev.gas_state==0)
+                {
+                    for(i=0;i<=4;i++)
+                    {
+                        tempTracker[i] =  tempTracker[i+1];
+                    }
+                }
+                sensorDev_mutex.unlock();
             }
-            else if(tempTracker[5]-avr<10 || sensorDev.gas_state<2)
+            else if(tempTracker[5]-avr<2)
             {
                 if(tempTracker[6]==0)
                 {
@@ -288,7 +301,7 @@ void checkTempState(int *tempTracker)
                     tempTracker[6]--;
                 }
 
-                for(i=0;i<3;i++)
+                for(i=0;i<=4;i++)
                 {
                     tempTracker[i] =  tempTracker[i+1];
                 }
@@ -387,7 +400,7 @@ void onPut(const HeaderOptions& /*headerOptions*/, const OCRepresentation& rep, 
         else
         {
             std::cout << "onPut Response error: " << eCode << std::endl;
-           // std::exit(-1);
+            // std::exit(-1);
         }
     }
     catch(std::exception& e)
@@ -407,7 +420,7 @@ void putSensorRepresentation(std::shared_ptr<OCResource> resource)
 
         sensorDev_mutex.lock();
 
-        std::cout<<"gas value result:"<< "'" << sensorDev.gas_efflux << "'" << std::endl;
+        std::cout<<"gas value result:"<< "'" << sensorDev.gas_state << "'" << std::endl;
 
         rep.setValue("m_name", sensorDev.m_name);
         rep.setValue("light_state", sensorDev.light_state);
@@ -429,8 +442,8 @@ void putSensorRepresentation(std::shared_ptr<OCResource> resource)
         block_flag=1;
         // Invoke resource's put API with rep, query map and the callback parameter
         std::cout <<"put result print: "<<resource->put(rep, QueryParamsMap(),&onPut)<<std::endl;
-            // std::cout << "sending.."<<std::endl;
-        
+        // std::cout << "sending.."<<std::endl;
+
     }
 }
 
@@ -439,7 +452,7 @@ void putSensorRepresentation(std::shared_ptr<OCResource> resource)
 
 
 void onPost(const HeaderOptions& /*headerOptions*/,
-        const OCRepresentation& rep, const int eCode)
+            const OCRepresentation& rep, const int eCode)
 {
     try
     {
@@ -453,11 +466,11 @@ void onPost(const HeaderOptions& /*headerOptions*/,
 
                 rep.getValue("createduri",uri);
                 std::cout << "**********************************8"
-                    << std::endl;
+                          << std::endl;
                 std::cout << "\tUri of the created resource: "
-                    <<uri<< std::endl;
+                          <<uri<< std::endl;
                 std::cout << "**********************************8"
-                    << std::endl;
+                          << std::endl;
             }
         }
         else
@@ -470,8 +483,8 @@ void onPost(const HeaderOptions& /*headerOptions*/,
     {
         std::cout << "Exception: " << e.what() << " in onPost" << std::endl;
     }
-   // initFindResource();
-    
+    // initFindResource();
+
     std::unique_lock<std::mutex> lock(blocker);
     cv.notify_one();
 }
@@ -499,13 +512,13 @@ void foundResource(std::shared_ptr<OCResource> resource)
     std::string hostAddress;
     try
     {
-        
+
         //
         // std::lock_guard<std::mutex> lock(curResourceLock);
         if(discoveredResources.find(resource->uniqueIdentifier()) == discoveredResources.end())
         {
             std::cout << "Found resource " << resource->uniqueIdentifier() <<
-                    " for the first time on server with ID: "<< resource->sid()<<std::endl;
+                      " for the first time on server with ID: "<< resource->sid()<<std::endl;
             discoveredResources[resource->uniqueIdentifier()] = resource;
         }
         else
@@ -546,13 +559,13 @@ void foundResource(std::shared_ptr<OCResource> resource)
             if(resourceURI == "/a/sensor0" && !curResource) //post section
             {
                 std::cout << "\t------------------------------------------: " << std::endl;
-                    std::cout << "find uri sensor0 " << std::endl;
+                std::cout << "find uri sensor0 " << std::endl;
                 curResource = resource;
                 // Call a local function which will internally invoke get API on the resource pointer
                 postSensorRepresentaion(resource);
             }
             else if(resourceURI==uri && curResource) //get,put
-            {   
+            {
                 curResource = resource;
                 std::unique_lock<std::mutex> lock(blocker);
                 cv.notify_one();
@@ -583,7 +596,7 @@ int initFindResource(int check)
         OCPersistentStorage ps {client_open, fread, fwrite, fclose, unlink };
         try
         {
-           OBSERVE_TYPE_TO_USE = ObserveType::ObserveAll;
+            OBSERVE_TYPE_TO_USE = ObserveType::ObserveAll;
         }
         catch(std::exception& )
         {
@@ -593,12 +606,12 @@ int initFindResource(int check)
 
         // Create PlatformConfig objobect
         PlatformConfig cfg {
-            OC::ServiceType::InProc,
-            OC::ModeType::Both,
-            "0.0.0.0",
-            0,
-            OC::QualityOfService::LowQos,
-            &ps
+                OC::ServiceType::InProc,
+                OC::ModeType::Both,
+                "0.0.0.0",
+                0,
+                OC::QualityOfService::LowQos,
+                &ps
         };
 
         OCPlatform::Configure(cfg);
@@ -629,39 +642,39 @@ int initFindResource(int check)
 
 
 
-int main() 
+int main()
 {
-	SENSOR_VALUE sensor_value;
-	time_t time_now;
-	uuid_t id;
-	char *tmp = new char [37];
+    SENSOR_VALUE sensor_value;
+    time_t time_now;
+    uuid_t id;
+    char *tmp = new char [37];
     int fd,sensor_flag=0,fire_flag=0,gasTracker[5]={-200,-200,-200,-200,-200},
             flameTracker[5]={-200,-200,-200,-200,-200},humTracker[7]={-200,-200,-200,-200,-200,-200,0},
             tempTracker[7]={-200,-200,-200,-200,-200,-200,0},filter=0;
     FILE *pFile=NULL;
 
 
-	if(0<(fd = open( "./uuid_log.txt",O_RDONLY)))
-   	{
+    if(0<(fd = open( "./uuid_log.txt",O_RDONLY)))
+    {
         std::cout<< "success open"<<std::endl;
-      	read(fd,tmp,UUID_SIZE);
-      	//tmp[36]='/0';
-   	}
-  	else
-   	{
-        std::cout<< "fail open"<<std::endl;
-     	uuid_generate(id);
-		uuid_unparse(id,tmp);
-		system("touch uuid_log.txt");
-		if(0<(fd = open( "./uuid_log.txt",O_WRONLY)))
-   		{
-      		write(fd,tmp,UUID_SIZE);
-   		}
+        read(fd,tmp,UUID_SIZE);
         //tmp[36]='/0';
-   	}
+    }
+    else
+    {
+        std::cout<< "fail open"<<std::endl;
+        uuid_generate(id);
+        uuid_unparse(id,tmp);
+        system("touch uuid_log.txt");
+        if(0<(fd = open( "./uuid_log.txt",O_WRONLY)))
+        {
+            write(fd,tmp,UUID_SIZE);
+        }
+        //tmp[36]='/0';
+    }
 
     sensorDev_mutex.lock();
-	sensorDev.m_name = tmp;
+    sensorDev.m_name = tmp;
     std::cout<<"uuid: "<<sensorDev.m_name<<std::endl;
     sensorDev_mutex.unlock();
 
@@ -689,8 +702,8 @@ int main()
     digitalWrite(LEDPIN, LOW);
 
     std::cout<< "start run"<<std::endl;
-   
-	//curResource->observe(OBSERVE_TYPE_TO_USE, QueryParamsMap(), &onObserve);
+
+    //curResource->observe(OBSERVE_TYPE_TO_USE, QueryParamsMap(), &onObserve);
 
     sensorDev_mutex.lock();
     sensorDev.light_state = false;
@@ -702,17 +715,17 @@ int main()
     while(true)
     {
         allocation_resource.lock();
-	    sensor_value = readSensor(sensor_flag);
+        sensor_value = readSensor(sensor_flag);
         if(sensor_flag==0) sensor_flag=1;
 
 
         sensorDev_mutex.lock();
-	    sensorDev.gas_efflux = sensor_value.gasValue;
-	    sensorDev.flame_power = sensor_value.flameValue;
+        sensorDev.gas_efflux = sensor_value.gasValue;
+        sensorDev.flame_power = sensor_value.flameValue;
 
         if(th_data[2]!= -1000) sensorDev.temper = th_data[2];
 
-	     if(th_data[0]!= -1000) sensorDev.humi = th_data[0];
+        if(th_data[0]!= -1000) sensorDev.humi = th_data[0];
 
         gasTracker[4] =  sensorDev.gas_efflux;
         flameTracker[4] = sensorDev.flame_power;
@@ -721,7 +734,7 @@ int main()
         sensorDev_mutex.unlock();
 
         std::cout<< "value : "<<tempTracker[5]<<std::endl;
-        
+
         if(filter >  5)
         {
             checkTempState(tempTracker);
@@ -730,32 +743,32 @@ int main()
             checkHumiState(humTracker);
         }
 
-	    time(&time_now);
+        time(&time_now);
 
         sensorDev_mutex.lock();
-	    sensorDev.time_stp = time_now;
+        sensorDev.time_stp = time_now;
         sensorDev_mutex.unlock();
 
 
-	    putSensorRepresentation(curResource);
-	    getSensorRepresentation(curResource);
+        putSensorRepresentation(curResource);
+        getSensorRepresentation(curResource);
 
         sensorDev_mutex.lock();
-	    if(sensorDev.fire_alarm > 0)//화재 발생시에
-	    {
+        if(sensorDev.fire_alarm > 0)//화재 발생시에
+        {
             int check=0;
             if (sensorDev.light_state>0)
             {
                 pinMode(LEDPIN, OUTPUT);
                 digitalWrite(LEDPIN, HIGH);
-            } 
+            }
             else if(sensorDev.light_state == 0)
             {
                 pinMode(LEDPIN, OUTPUT);
                 digitalWrite(LEDPIN, LOW);
             }
 
-            if (fire_flag==0)//처음 발견 
+            if (fire_flag==0)//처음 발견
             {
                 std::cout<<"init fire alarm"<<std::endl;
                 std::string command_tmp = std::to_string(sensorDev.fire_alarm);
@@ -766,12 +779,12 @@ int main()
                 check = system(command.c_str());
                 fire_flag= 1;
                 if (check == -1 || check == 127)
-                {   
+                {
                     std::cout<< "system function error "<<std::endl;
                 }
 
             }
-            
+
             std::string json_string;
 
             if(pFile == NULL)//Json 읽기
@@ -781,20 +794,20 @@ int main()
             }
             else if(pFile != NULL)
             {
-                char str [1024]; 
+                char str [1024];
                 fseek ( pFile , 0 , SEEK_SET );
                 while(fgets(str, sizeof(str), pFile))
                 {
                     json_string+=str;
                 }
-            } 
+            }
 
-             sensorDev.json_info = json_string;
+            sensorDev.json_info = json_string;
 
 
             std::cout << "'" << json_string << "'" << std::endl;
 
-	    }
+        }
         else if(sensorDev.fire_alarm == 0 && fire_flag==1)
         {
             int check=0;
@@ -810,7 +823,7 @@ int main()
             kill(PID,9);
              */
             system("forever stopall");
-            check = system("rm ./json_string.txt");
+            check = system("rm ./json_string.txt .txt");
             if (check == -1 || check == 127)
             {
                 std::cout<< "system function error "<<std::endl;
@@ -821,11 +834,11 @@ int main()
             fire_flag = 0;
         }
         sensorDev_mutex.unlock();
-        delay(1000);
+        delay(4000);
         filter++;
         allocation_resource.unlock();
-        sleep(5);
-  	}
+        sleep(1);
+    }
 
     return 0;
 }
