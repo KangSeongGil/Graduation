@@ -47,6 +47,8 @@ std::mutex blocker;
 std::mutex allocation_resource;
 std::mutex sensorDev_mutex;
 std::condition_variable cv;
+int gas_avr = 300;
+int flame_avr = 300;
 
 
 
@@ -109,13 +111,13 @@ std::string exec(const char* cmd)
 
 void checkGasState(int *gasTracker)
 {
-    int i=0;
+    int i=0,avr=0;
     if(gasTracker[0]!=-200)
     {
         int flag=0;
         for(i=0;i<=4;i++)
         {
-            if (gasTracker[i]>=300 && flag < 5)
+            if (gasTracker[i]>=gas_avr && flag < 5)
             {
                 std::cout<<"\n\n pluse flag\n\n"<<std::endl;
                 flag++;
@@ -128,6 +130,20 @@ void checkGasState(int *gasTracker)
         else  if(flag<2)sensorDev.gas_state=0;
         sensorDev_mutex.unlock();
     }
+
+    sensorDev_mutex.lock();
+
+    if(sensorDev.fire_alarm==0)
+    {
+        for(i=0;i<=4;i++)
+        {
+            avr += gasTracker[i];
+        }
+        gas_avr = avr / 5;
+        if(sensorDev.gas_state<1) gas_avr+=200;
+    }
+    sensorDev_mutex.unlock();
+
     for(i=0;i<4;i++)
     {
         gasTracker[i]=gasTracker[i+1];
@@ -136,12 +152,12 @@ void checkGasState(int *gasTracker)
 
 void checkFlameState(int *flameTracker)
 {
-    int i;
+    int i,avr=0;
     if(flameTracker[0]!=-200)
     {   int flag=0;
         for(i=0;i<=4;i++)
         {
-            if (flameTracker[i]<300 && flag < 5 )flag++;
+            if (flameTracker[i]<flame_avr && flag < 5 )flag++;
         }
 
         sensorDev_mutex.lock();
@@ -150,7 +166,17 @@ void checkFlameState(int *flameTracker)
         else if(flag<2) sensorDev.flame_state=0;
         sensorDev_mutex.unlock();
     }
-
+    sensorDev_mutex.lock();
+    if(sensorDev.fire_alarm==0)
+    {
+        for(i=0;i<=4;i++)
+        {
+            avr += flameTracker[i];
+        }
+        flame_avr = avr / 5;
+        if(sensorDev.flame_state<1) flame_avr-=150;
+    }
+    sensorDev_mutex.unlock();
     for(i=0;i<4;i++)
     {
         flameTracker[i]=flameTracker[i+1];
@@ -697,7 +723,7 @@ int main()
     digitalWrite(LEDPIN, LOW);
     pinMode(LEDPIN, OUTPUT);
     digitalWrite(LEDPIN, HIGH);
-    delay(500);
+    delay(2000);
     pinMode(LEDPIN, OUTPUT);
     digitalWrite(LEDPIN, LOW);
 
@@ -823,7 +849,7 @@ int main()
             kill(PID,9);
              */
             system("forever stopall");
-            check = system("rm ./json_string.txt .txt");
+            check = system("rm ./json_string.txt");
             if (check == -1 || check == 127)
             {
                 std::cout<< "system function error "<<std::endl;
